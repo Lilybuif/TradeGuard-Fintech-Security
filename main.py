@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import engine, Base, get_db
-from models import User, Watchlist
+from models import User, Watchlist, APIKeyVault
 from services.stock_engine import calculate_21_ema
 from pydantic import BaseModel
 from services.security import encrypt_api_key, decrypt_api_key
@@ -42,20 +42,30 @@ class APIKeyRequest(BaseModel):
     service_name: str
     api_key: str
 
-@app.post("/vault/store")
-def store_user_api_key(payload: APIKeyRequest):
+@app.post("/vault/store-db")
+def store_and_persist_api_key(payload: APIKeyRequest, db: Session = Depends(get_db)):
     """
-    Accepts a plaintext API key, encrypts it using AES-256 (Fernet),
-    and returns a safe preview of the encrypted ciphertext.
+    Encrypts an API key with AES-256 and persists it securely to the database.
     """
     try:
-        encrypted_key = encrypt_api_key(payload.api_key)
+        encrypted_ciphertext = encrypt_api_key(payload.api_key)
+        
+        # Save to database
+        db_key_entry = APIKeyVault(
+            user_id=payload.user_id,
+            service_name=payload.service_name,
+            encrypted_key=encrypted_ciphertext
+        )
+        db.add(db_key_entry)
+        db.commit()
+        db.refresh(db_key_entry)
+        
         return {
             "status": "success",
-            "message": f"API key for {payload.service_name} successfully encrypted and secured.",
-            "user_id": payload.user_id,
-            "service": payload.service_name,
-            "encrypted_preview": encrypted_key[:20] + "..." # Masked ciphertext preview
+            "message": f"API key for {payload.service_name} securely encrypted and saved to database.",
+            "record_id": db_key_entry.id,
+            "service": payload.service_name
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Encryption failed: {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database persistence failed: {str(e)}")

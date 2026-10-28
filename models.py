@@ -13,16 +13,16 @@ class User(Base):
     api_keys = relationship("APIKeyVault", back_populates="owner")
     watchlists = relationship("Watchlist", back_populates="owner")
 
-class APIKeyVault(Base):
+class APIKeyVault(BaseModel if 'BaseModel' in globals() else Base):
     __tablename__ = "api_key_vault"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    service_name = Column(String, nullable=False) # e.g., "Robinhood", "AlphaVantage"
-    encrypted_key = Column(String, nullable=False) # AES-256 encrypted payload
-
-    owner = relationship("User", back_populates="api_keys")
-
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    service_name = Column(String, nullable=False)
+    encrypted_key = Column(String, nullable=False)  # Stores the AES-256 ciphertext
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
 class Watchlist(Base):
     __tablename__ = "watchlists"
 
