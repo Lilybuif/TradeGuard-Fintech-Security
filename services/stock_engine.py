@@ -48,3 +48,19 @@ if __name__ == "__main__":
     print(f"Latest Close: {result['latest_close']:.2f}")
     print(f"Latest 21 EMA: {result['latest_21_ema']:.2f}")
     print(f"Signal: {result['signal']}")
+
+def get_batch_stock_signals(tickers: list[str]) -> list[dict]:
+    """
+    Batch processes a list of tickers to compute real-time price and 21 EMA signals.
+    """
+    results = []
+    for ticker in tickers:
+        try:
+            signal_data = get_stock_data_and_ema(ticker)
+            results.append(signal_data)
+        except Exception as e:
+            results.append({
+                "ticker": ticker,
+                "error": f"Failed to compute signal: {str(e)}"
+            })
+    return results
