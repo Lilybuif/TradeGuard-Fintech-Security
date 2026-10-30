@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TradeGuard Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 40px; }
+        .container { max-width: 800px; margin: auto; background: #1e293b; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        h1 { color: #38bdf8; }
+        .card { background: #334155; padding: 20px; border-radius: 8px; margin-top: 20px; }
+        input, button { padding: 10px; margin: 5px 0; border-radius: 4px; border: none; }
+        input { width: 60%; background: #0f172a; color: white; }
+        button { background: #38bdf8; color: #0f172a; font-weight: bold; cursor: pointer; }
+        button:hover { background: #0ea5e9; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>TradeGuard Security & Momentum Dashboard</h1>
+        <p>Welcome to your F-1 OPT fintech platform. Manage your watchlist and secure your API keys.</p>
+        
+        <div class="card">
+            <h3>Add Ticker to Watchlist</h3>
+            <input type="text" id="tickerInput" placeholder="Enter Ticker (e.g., AAPL)">
+            <button onclick="addTicker()">Add to Watchlist</button>
+            <p id="responseMsg"></p>
+        </div>
+    </div>
+
+    <script>
+        async function addTicker() {
+            const ticker = document.getElementById('tickerInput').value;
+            const response = await fetch('http://127.0.0.1:8000/watchlist/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: 1, ticker: ticker })
+            });
+            const data = await response.json();
+            document.getElementById('responseMsg').innerText = data.message;
+        }
+    </script>
+</body>
+</html>

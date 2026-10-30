@@ -6,6 +6,7 @@ from services.stock_engine import calculate_21_ema, get_batch_stock_signals
 from pydantic import BaseModel
 from services.security import encrypt_api_key, decrypt_api_key
 from typing import List
+from fastapi.middleware.cors import CORSMiddleware
 
 # Initialize database tables
 Base.metadata.create_all(bind=engine)
@@ -14,6 +15,15 @@ app = FastAPI(
     title="TradeGuard API",
     description="Fintech security & momentum indicator backend",
     version="1.0.0"
+)
+
+# Enable CORS on that same app instance
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows requests from index.html / local browser files
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 @app.get("/")
@@ -77,12 +87,8 @@ class WatchlistRequest(BaseModel):
 
 @app.post("/watchlist/add")
 def add_ticker_to_watchlist(payload: WatchlistRequest, db: Session = Depends(get_db)):
-    """
-    Adds a new stock ticker symbol to a user's persistent watchlist.
-    """
     ticker_clean = payload.ticker.upper().strip()
     
-    # Check if entry already exists
     existing_entry = db.query(Watchlist).filter(
         Watchlist.user_id == payload.user_id,
         Watchlist.ticker == ticker_clean
@@ -124,3 +130,4 @@ def get_watchlist_signals(user_id: int, db: Session = Depends(get_db)):
     
     signals = get_batch_stock_signals(tickers)
     return {"user_id": user_id, "count": len(signals), "signals": signals}
+
