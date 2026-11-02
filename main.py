@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from database import engine, Base, get_db
 from models import User, Watchlist, APIKeyVault
@@ -7,7 +7,8 @@ from pydantic import BaseModel
 from services.security import encrypt_api_key, decrypt_api_key
 from typing import List
 from fastapi.middleware.cors import CORSMiddleware
-
+from pydantic import BaseModel, EmailStr
+from services.auth import hash_password, verify_password, create_access_token
 # Initialize database tables
 Base.metadata.create_all(bind=engine)
 
@@ -131,3 +132,53 @@ def get_watchlist_signals(user_id: int, db: Session = Depends(get_db)):
     signals = get_batch_stock_signals(tickers)
     return {"user_id": user_id, "count": len(signals), "signals": signals}
 
+class UserCreate(BaseModel):
+    email: EmailStr
+    password: str
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+@app.post("/auth/register", status_code=status.HTTP_201_CREATED)
+def register_user(payload: UserCreate, db: Session = Depends(get_db)):
+    # Check if user already exists
+    existing_user = db.query(User).filter(User.email == payload.email).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email is already registered with TradeGuard."
+        )
+    
+    # Hash password and create user
+    hashed_pw = hash_password(payload.password)
+    new_user = User(email=payload.email, hashed_password=hashed_pw)
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    
+    return {
+        "status": "success",
+        "message": f"User {new_user.email} registered successfully.",
+        "user_id": new_user.id
+    }
+
+@app.post("/auth/login")
+def login_user(payload: UserLogin, db: Session = Depends(get_db)):
+    # Find user by email
+    user = db.query(User).filter(User.email == payload.email).first()
+    if not user or not verify_password(payload.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Generate JWT access token
+    access_token = create_access_token(data={"sub": user.email, "user_id": user.id})
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user_id": user.id
+    }
