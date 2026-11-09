@@ -3,42 +3,97 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TradeGuard Dashboard</title>
+    <title>TradeGuard - Fintech Security Dashboard</title>
     <style>
-        body { font-family: Arial, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 40px; }
-        .container { max-width: 800px; margin: auto; background: #1e293b; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
-        h1 { color: #38bdf8; }
-        .card { background: #334155; padding: 20px; border-radius: 8px; margin-top: 20px; }
-        input, button { padding: 10px; margin: 5px 0; border-radius: 4px; border: none; }
-        input { width: 60%; background: #0f172a; color: white; }
-        button { background: #38bdf8; color: #0f172a; font-weight: bold; cursor: pointer; }
+        body { font-family: Arial, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: auto; background: #1e293b; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+        h1, h2 { color: #38bdf8; }
+        .card { background: #334155; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        input, button { padding: 10px; margin: 5px 0; width: 100%; box-sizing: border-box; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #fff; }
+        button { background: #0284c7; border: none; font-weight: bold; cursor: pointer; }
         button:hover { background: #0ea5e9; }
+        .hidden { display: none; }
+        #auth-status { font-size: 0.9em; color: #34d399; margin-bottom: 15px; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>TradeGuard Security & Momentum Dashboard</h1>
-        <p>Welcome to your F-1 OPT fintech platform. Manage your watchlist and secure your API keys.</p>
-        
-        <div class="card">
-            <h3>Add Ticker to Watchlist</h3>
-            <input type="text" id="tickerInput" placeholder="Enter Ticker (e.g., AAPL)">
-            <button onclick="addTicker()">Add to Watchlist</button>
-            <p id="responseMsg"></p>
-        </div>
+
+<div class="container">
+    <h1>TradeGuard Dashboard</h1>
+    <div id="auth-status">Not logged in</div>
+
+    <!-- Auth Section -->
+    <div id="auth-section" class="card">
+        <h2>Authentication</h2>
+        <input type="email" id="auth-email" placeholder="Email Address">
+        <input type="password" id="auth-password" placeholder="Password">
+        <button onclick="registerUser()">Register</button>
+        <button onclick="loginUser()">Login</button>
     </div>
 
-    <script>
-        async function addTicker() {
-            const ticker = document.getElementById('tickerInput').value;
-            const response = await fetch('http://127.0.0.1:8000/watchlist/add', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: 1, ticker: ticker })
-            });
-            const data = await response.json();
-            document.getElementById('responseMsg').innerText = data.message;
+    <!-- Watchlist & Signals Section (Hidden until logged in) -->
+    <div id="dashboard-section" class="card hidden">
+        <h2>Watchlist & 21 EMA Signals</h2>
+        <input type="text" id="ticker-input" placeholder="Enter Ticker (e.g. AAPL, TSLA)">
+        <button onclick="addTicker()">Add to Watchlist</button>
+        <div id="watchlist-results"></div>
+    </div>
+</div>
+
+<script>
+    const API_URL = "http://127.0.0.1:8000";
+
+    async function registerUser() {
+        const email = document.getElementById("auth-email").value;
+        const password = document.getElementById("auth-password").value;
+
+        const response = await fetch(`${API_URL}/auth/register`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password })
+        });
+        const data = await response.json();
+        alert(data.message || JSON.stringify(data));
+    }
+
+    async function loginUser() {
+        const email = document.getElementById("auth-email").value;
+        const password = document.getElementById("auth-password").value;
+
+        const response = await fetch(`${API_URL}/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password })
+        });
+        const data = await response.json();
+
+        if (response.ok) {
+            localStorage.setItem("access_token", data.access_token);
+            document.getElementById("auth-status").innerText = `Logged in as: ${email}`;
+            document.getElementById("auth-section").classList.add("hidden");
+            document.getElementById("dashboard-section").classList.remove("hidden");
+            alert("Login successful!");
+        } else {
+            alert(data.detail || "Login failed");
         }
-    </script>
+    }
+
+    async function addTicker() {
+        const ticker = document.getElementById("ticker-input").value;
+        const token = localStorage.getItem("access_token");
+
+        const response = await fetch(`${API_URL}/watchlist/add`, {
+            method: "POST",
+            headers: { 
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({ user_id: 1, ticker: ticker.toUpperCase() })
+        });
+        const data = await response.json();
+        document.getElementById("watchlist-results").innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+    }
+</script>
+
 </body>
 </html>
